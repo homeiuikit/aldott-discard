@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200" fill="none">
+  <!-- NACA-style airfoil section outline, single 1px path, chord along x -->
+  <path d="M20 100
+           C 60 66, 160 52, 280 62
+           C 400 72, 500 86, 580 100
+           C 500 108, 400 116, 280 120
+           C 160 122, 60 116, 20 100 Z"
+        stroke="#4FA9B8" stroke-width="1"/>
+  <!-- chord line + a few section stations -->
+  <g stroke="#4FA9B8" stroke-width="1">
+    <path d="M20 100 H580" />
+    <path d="M160 74 V116 M300 66 V120 M440 78 V114" />
+  </g>
+</svg>
