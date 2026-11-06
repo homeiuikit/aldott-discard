@@ -9,8 +9,9 @@ import ValueCard from '@/components/ui/ValueCard';
 import { offices } from '@/data/site';
 import { aboutIntro, founder, proofCards } from '@/data/about';
 import { testimonials } from '@/data/testimonials';
+import { cmsMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('about', {
   title: 'About',
   description:
     'Aldott TechSolution is a Bremen-headquartered wind energy design house — a full-stack engineering partner covering loads, structural and foundation engineering, certification, and project development for onshore and offshore wind.',
@@ -18,10 +19,10 @@ export const metadata: Metadata = {
     title: 'About Aldott TechSolution',
     description:
       'Independent wind energy design house. Bremen headquarters, Bengaluru engineering office.',
-    url: 'https://aldott.in/about',
+    url: 'https://aldott.de/about',
   },
-  alternates: { canonical: 'https://aldott.in/about' },
-};
+  alternates: { canonical: 'https://aldott.de/about' },
+}); }
 
 const values = [
   {

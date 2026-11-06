@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { services } from '@/data/services';
 import { offices, siteConfig } from '@/data/site';
 import Icon from '@/components/ui/Icon';
+import { getPublicSettings } from '@/lib/api';
 
 const companyLinks = [
   { label: 'About', href: '/about' },
@@ -11,7 +12,10 @@ const companyLinks = [
   { label: 'Contact', href: '/contact' },
 ];
 
-export default function Footer() {
+export default async function Footer() {
+  const settings = await getPublicSettings();
+  const email = String(settings.email || siteConfig.email);
+  const linkedin = String(settings.socialLinks?.linkedin || siteConfig.linkedin);
   return (
     <footer className="bg-navy text-white">
       <div className="max-w-content mx-auto px-6 md:px-8 py-16">
@@ -31,7 +35,7 @@ export default function Footer() {
               {siteConfig.tagline}
             </p>
             <a
-              href={siteConfig.linkedin}
+              href={linkedin}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"
@@ -107,10 +111,10 @@ export default function Footer() {
                   <Icon name="Mail" size={16} />
                 </span>
                 <a
-                  href={`mailto:${siteConfig.email}`}
+                  href={`mailto:${email}`}
                   className="text-white/60 text-sm hover:text-white transition-colors"
                 >
-                  {siteConfig.email}
+                  {email}
                 </a>
               </li>
             </ul>

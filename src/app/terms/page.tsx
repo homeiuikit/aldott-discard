@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import PageHero from '@/components/ui/PageHero';
+import { cmsMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('terms', {
   title: 'Terms of Use',
   description: 'Terms governing the use of the Aldott website.',
-};
+}); }
 
 export default function TermsPage() {
   return (

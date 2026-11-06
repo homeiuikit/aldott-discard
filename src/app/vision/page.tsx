@@ -6,8 +6,9 @@ import Icon from '@/components/ui/Icon';
 import PageHero from '@/components/ui/PageHero';
 import Reveal from '@/components/ui/Reveal';
 import { visionIntro, beyondWind, roadmap } from '@/data/vision';
+import { cmsMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('vision', {
   title: 'Future Directions',
   description:
     'Aldott is extending wind-grade engineering methodology into utility-scale solar PV and green hydrogen. A statement of intent — not a current service catalogue. Wind remains the core practice.',
@@ -15,10 +16,10 @@ export const metadata: Metadata = {
     title: 'Future Directions — Aldott TechSolution',
     description:
       'Beyond wind: solar PV and green hydrogen as engineering intent, not a service catalogue.',
-    url: 'https://aldott.in/vision',
+    url: 'https://aldott.de/vision',
   },
-  alternates: { canonical: 'https://aldott.in/vision' },
-};
+  alternates: { canonical: 'https://aldott.de/vision' },
+}); }
 
 export default function VisionPage() {
   return (

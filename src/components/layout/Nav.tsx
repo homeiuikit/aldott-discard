@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { navLinks } from '@/data/site';
 import Icon from '@/components/ui/Icon';
 
-export default function Nav() {
+export default function Nav({ logoUrl }: { logoUrl?: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -39,7 +39,7 @@ export default function Nav() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/logo-color.svg"
+            src={logoUrl || '/assets/logo-color.svg'}
             alt="Aldott TechSolution"
             width={106}
             height={32}

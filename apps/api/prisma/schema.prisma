@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum ContentStatus {
+  draft
+  published
+  archived
+}
+enum SubmissionStatus {
+  new
+  read
+  archived
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  name String
+  passwordHash String
+  active Boolean @default(true)
+  tokenVersion Int @default(0)
+  roleId String
+  role Role @relation(fields: [roleId], references: [id])
+  resetTokens PasswordResetToken[]
+  auditLogs AuditLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Role {
+  id String @id @default(cuid())
+  name String @unique
+  users User[]
+  permissions RolePermission[]
+  createdAt DateTime @default(now())
+}
+model Permission {
+  id String @id @default(cuid())
+  key String @unique
+  description String?
+  roles RolePermission[]
+}
+model RolePermission {
+  roleId String
+  permissionId String
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@id([roleId, permissionId])
+}
+model PasswordResetToken {
+  id String @id @default(cuid())
+  userId String
+  tokenHash String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+model AuditLog {
+  id String @id @default(cuid())
+  userId String?
+  action String
+  entity String
+  entityId String?
+  details Json?
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  @@index([entity, entityId])
+}
+model Media {
+  id String @id @default(cuid())
+  filename String
+  originalName String
+  mimeType String
+  size Int
+  url String @unique
+  alt String @default("")
+  createdAt DateTime @default(now())
+}
+model Setting {
+  key String @id
+  value Json
+  updatedAt DateTime @updatedAt
+}
+model Page {
+  id String @id @default(cuid())
+  title String
+  slug String @unique
+  status ContentStatus @default(draft)
+  seoMeta Json @default("{}")
+  contentBlocks Json @default("[]")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+model Post {
+  id String @id @default(cuid())
+  title String
+  slug String @unique
+  type String @default("insight")
+  status ContentStatus @default(draft)
+  seoMeta Json @default("{}")
+  contentBlocks Json @default("[]")
+  featuredImage String?
+  publishedAt DateTime?
+  categories Category[]
+  tags Tag[]
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+model Category {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  posts Post[]
+  createdAt DateTime @default(now())
+}
+model Tag {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  posts Post[]
+  createdAt DateTime @default(now())
+}
+model FormSubmission {
+  id String @id @default(cuid())
+  formType String
+  data Json
+  status SubmissionStatus @default(new)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Redirect {
+  id String @id @default(cuid())
+  source String @unique
+  target String
+  statusCode Int @default(301)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model ApiKey {
+  id String @id @default(cuid())
+  name String
+  keyHash String @unique
+  lastUsedAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}

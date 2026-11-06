@@ -1,32 +1,37 @@
 import { siteConfig, offices } from '@/data/site';
+import { getCmsPage, getPublicSettings } from '@/lib/api';
 
 /** Organization / ProfessionalService JSON-LD for search and knowledge panels. */
-export default function JsonLd() {
+export default async function JsonLd() {
+  const page = await getCmsPage('home');
+  const settings = await getPublicSettings();
+  const description = page?.seoMeta?.description || settings.defaultSeo?.description || 'Independent wind energy engineering consultancy. Turbine design, loads analysis, and type certification support for OEMs, developers, and certification bodies.';
+  const siteName = String(settings.siteName || 'aldott.de');
   const data = {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': 'https://aldott.in/#organization',
-        name: siteConfig.name,
-        url: 'https://aldott.in',
-        email: siteConfig.email,
-        logo: 'https://aldott.in/assets/logo-color.svg',
-        sameAs: [siteConfig.linkedin],
-        description:
-          'Independent wind energy engineering consultancy. Turbine design, loads analysis, and type certification support for OEMs, developers, and certification bodies.',
-        address: offices.map((o) => ({
+        '@id': 'https://aldott.de/#organization',
+        name: siteName,
+        url: 'https://aldott.de',
+        email: String(settings.email || siteConfig.email),
+        telephone: String(settings.phone || ''),
+        logo: `https://aldott.de${String(settings.logo || '/assets/logo-color.svg')}`,
+        sameAs: [String((settings.socialLinks || {}).linkedin || siteConfig.linkedin)],
+        description,
+        address: Array.isArray(settings.address) ? settings.address.map((a: any) => ({
           '@type': 'PostalAddress',
-          addressLocality: o.city,
-          addressCountry: o.country === 'Germany' ? 'DE' : 'IN',
-        })),
+          addressLocality: a.city,
+          addressCountry: a.country === 'Germany' ? 'DE' : a.country === 'India' ? 'IN' : a.country,
+        })) : offices.map((o) => ({ '@type': 'PostalAddress', addressLocality: o.city, addressCountry: o.country === 'Germany' ? 'DE' : 'IN' })),
       },
       {
         '@type': 'ProfessionalService',
-        '@id': 'https://aldott.in/#service',
-        name: siteConfig.name,
-        url: 'https://aldott.in',
-        image: 'https://aldott.in/assets/photos/figma/blade.jpg',
+        '@id': 'https://aldott.de/#service',
+        name: siteName,
+        url: 'https://aldott.de',
+        image: 'https://aldott.de/assets/photos/figma/blade.jpg',
         areaServed: ['Europe', 'India', 'Global'],
         serviceType: [
           'Wind turbine design',
@@ -34,14 +39,14 @@ export default function JsonLd() {
           'Type certification support',
           "Owner's engineering",
         ],
-        provider: { '@id': 'https://aldott.in/#organization' },
+        provider: { '@id': 'https://aldott.de/#organization' },
       },
       {
         '@type': 'WebSite',
-        '@id': 'https://aldott.in/#website',
-        url: 'https://aldott.in',
-        name: siteConfig.name,
-        publisher: { '@id': 'https://aldott.in/#organization' },
+        '@id': 'https://aldott.de/#website',
+        url: 'https://aldott.de',
+        name: siteName,
+        publisher: { '@id': 'https://aldott.de/#organization' },
         inLanguage: 'en-GB',
       },
     ],
@@ -50,7 +55,7 @@ export default function JsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
     />
   );
 }

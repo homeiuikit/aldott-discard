@@ -4,8 +4,10 @@ import Icon from '@/components/ui/Icon';
 import PageHero from '@/components/ui/PageHero';
 import ContactForm from '@/components/sections/contact/ContactForm';
 import { offices, siteConfig } from '@/data/site';
+import { cmsMetadata } from '@/lib/metadata';
+import { getPublicSettings } from '@/lib/api';
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('contact', {
   title: 'Contact',
   description:
     "Contact Aldott's engineering team in Bremen and Bengaluru. Discuss wind turbine design, loads analysis, certification, or owner's engineering support.",
@@ -13,12 +15,14 @@ export const metadata: Metadata = {
     title: 'Contact Aldott TechSolution',
     description:
       'Discuss your wind energy project with our engineers. Response within one business day.',
-    url: 'https://aldott.in/contact',
+    url: 'https://aldott.de/contact',
   },
-  alternates: { canonical: 'https://aldott.in/contact' },
-};
+  alternates: { canonical: 'https://aldott.de/contact' },
+}); }
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const settings = await getPublicSettings();
+  const contactEmail = String(settings.email || siteConfig.email);
   return (
     <>
       <PageHero
@@ -44,10 +48,10 @@ export default function ContactPage() {
                 <p className="text-text-muted text-sm leading-relaxed">
                   Reach us directly at{' '}
                   <a
-                    href={`mailto:${siteConfig.email}`}
+                    href={`mailto:${contactEmail}`}
                     className="text-accent hover:underline"
                   >
-                    {siteConfig.email}
+                    {contactEmail}
                   </a>
                   , or use the form and we&apos;ll route your enquiry to the right team.
                 </p>

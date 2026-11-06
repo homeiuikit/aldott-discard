@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  NEXT_PUBLIC_API_URL = "https://api.aldott.de/api/v1"
 
 # Netlify's Next.js runtime — handles SSR/SSG routing and next/image
 # optimization via the Netlify Image CDN. Auto-installed on Next detection,

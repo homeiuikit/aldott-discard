@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import PageHero from '@/components/ui/PageHero';
+import { cmsMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('privacy-policy', {
   title: 'Privacy Policy',
   description: 'How Aldott handles personal data submitted through this website.',
-};
+}); }
 
 export default function PrivacyPolicyPage() {
   return (

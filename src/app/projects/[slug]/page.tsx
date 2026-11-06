@@ -7,23 +7,28 @@ import Icon from '@/components/ui/Icon';
 import PageHero from '@/components/ui/PageHero';
 import ProjectCard from '@/components/ui/ProjectCard';
 import StandardsTag from '@/components/ui/StandardsTag';
-import { getProject, projects } from '@/data/projects';
+import { getProject, projects, type Project } from '@/data/projects';
+import { cmsMetadata } from '@/lib/metadata';
+import { getPublicPostContent } from '@/lib/api';
 
-export function generateStaticParams() {
-  return projects.map((project) => ({ slug: project.slug }));
-}
+export const dynamic = 'force-dynamic';
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const project = getProject(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const project = await getPublicPostContent<Project>(params.slug, 'project') || getProject(params.slug);
   if (!project) return {};
-  return {
+  const metadata = await cmsMetadata(`projects--${params.slug}`, {
     title: project.title,
     description: project.outcome,
-  };
+  });
+  const seo = (project as Project & { seoMeta?: { title?: string; description?: string } }).seoMeta;
+  if (!seo?.title && !seo?.description) return metadata;
+  const title = seo.title || project.title;
+  const description = seo.description || project.outcome;
+  return { ...metadata, title: { absolute: title }, description, openGraph: { ...metadata.openGraph, title, description } };
 }
 
-export default function ProjectDetailPage({ params }: { params: { slug: string } }) {
-  const project = getProject(params.slug);
+export default async function ProjectDetailPage({ params }: { params: { slug: string } }) {
+  const project = await getPublicPostContent<Project>(params.slug, 'project') || getProject(params.slug);
   if (!project) notFound();
 
   const related = projects.filter((p) => p.slug !== project.slug).slice(0, 3);

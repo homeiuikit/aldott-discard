@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import CTABand from '@/components/ui/CTABand';
 import PageHero from '@/components/ui/PageHero';
 import ServiceBlock from '@/components/sections/services/ServiceBlock';
-import { services } from '@/data/services';
+import { services as defaultServices, type Service } from '@/data/services';
+import { cmsMetadata } from '@/lib/metadata';
+import { getPublicPosts } from '@/lib/api';
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('services', {
   title: 'Engineering Services',
   description:
     'Seven wind energy engineering service lines: custom turbine design, loads & structural analysis, wind resource & site assessment, owner’s engineering, type certification support, certification body support, and R&D center outreach.',
@@ -12,12 +14,16 @@ export const metadata: Metadata = {
     title: 'Engineering Services — Aldott TechSolution',
     description:
       'Turbine design, loads analysis, type certification, and owner’s engineering for onshore and offshore wind.',
-    url: 'https://aldott.in/services',
+    url: 'https://aldott.de/services',
   },
-  alternates: { canonical: 'https://aldott.in/services' },
-};
+  alternates: { canonical: 'https://aldott.de/services' },
+}); }
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const posts = await getPublicPosts('service');
+  const services: Service[] = posts.length
+    ? posts.map((post) => post.contentBlocks?.find((block: any) => block?.type === 'service') || post.contentBlocks?.[0]).filter(Boolean).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : defaultServices;
   return (
     <>
       <PageHero

@@ -1,10 +1,14 @@
 # dependencies
 /node_modules
+**/node_modules
 /.pnp
 .pnp.js
 
 # next.js
 /.next/
+/admin/.next/
+/apps/api/dist/
+/apps/api/uploads/
 /out/
 
 # production
@@ -20,8 +24,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
-.env
+.env*
+!.env.example
+!.env.neon.example
 
 # typescript
 *.tsbuildinfo
@@ -38,3 +43,4 @@ skills-lock.json
 
 # vercel
 .vercel
+.neon

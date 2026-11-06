@@ -1,7 +1,8 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { getPublicPosts, getPublicSettings, submitPublicForm } from '@/lib/api';
 
 const serviceOptions = [
   'Custom Turbine Design',
@@ -34,37 +35,27 @@ export default function ContactForm() {
   const searchParams = useSearchParams();
   const preselected = slugToLabel[searchParams.get('service') ?? ''] ?? '';
   const [status, setStatus] = useState<Status>('idle');
+  const [formConfig, setFormConfig] = useState<any>({ fields: { company: true, phone: true, budget: false }, customQuestions: [] });
+  const [availableServices, setAvailableServices] = useState(serviceOptions);
+  useEffect(() => {
+    getPublicSettings().then((settings) => { if (settings.contactFormConfig && typeof settings.contactFormConfig === 'object') setFormConfig(settings.contactFormConfig); }).catch(() => undefined);
+    getPublicPosts('service').then((posts) => { const ordered = posts.map((post) => post.contentBlocks?.find((block: any) => block?.type === 'service') || post.contentBlocks?.[0]).filter(Boolean).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)); const names = ordered.map((service: any) => service.title).filter((name): name is string => typeof name === 'string' && Boolean(name)); if (names.length) setAvailableServices([...names, 'Other / Not sure yet']); }).catch(() => undefined);
+  }, []);
 
-  // POST to the server route, which forwards the lead to the CRM.
-  //
-  // TEMPORARY: the server route is between backends (Kit removed, HubSpot form
-  // id not yet configured) and currently answers 503. Meanwhile the HubSpot
-  // tracking script in the root layout captures this submit event directly, so
-  // enquiries do reach HubSpot as collected-form submissions. Until the route
-  // is wired up, a route failure is logged but still shown as success, rather
-  // than telling the visitor their enquiry failed when it actually arrived.
-  // Remove this fallback once /api/contact is live again.
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (status === 'submitting') return;
     setStatus('submitting');
 
     const formEl = e.currentTarget;
-    const payload = Object.fromEntries(new FormData(formEl).entries());
-
     try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) console.warn(`[contact] route returned ${res.status}`);
-    } catch (err) {
-      console.warn('[contact] route unreachable:', err);
+      const payload = Object.fromEntries(new FormData(formEl).entries());
+      await submitPublicForm('contact', payload);
+      formEl.reset();
+      setStatus('success');
+    } catch {
+      setStatus('error');
     }
-
-    formEl.reset();
-    setStatus('success');
   }
 
   if (status === 'success') {
@@ -93,12 +84,12 @@ export default function ContactForm() {
           </label>
           <input id="full_name" type="text" name="full_name" required placeholder="Your full name" className={inputClass} />
         </div>
-        <div>
+        {formConfig.fields?.company !== false && <div>
           <label htmlFor="company_name" className="block text-sm font-medium text-text mb-1">
             Company Name <span className="text-red-500">*</span>
           </label>
           <input id="company_name" type="text" name="company_name" required placeholder="Your organisation" className={inputClass} />
-        </div>
+        </div>}
       </div>
 
       {/* Row 2: Job Title + Work Email */}
@@ -119,12 +110,12 @@ export default function ContactForm() {
 
       {/* Row 3: Phone + Country */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        {formConfig.fields?.phone !== false && <div>
           <label htmlFor="phone" className="block text-sm font-medium text-text mb-1">
             Phone Number
           </label>
           <input id="phone" type="tel" name="phone" placeholder="Phone number (optional)" className={inputClass} />
-        </div>
+        </div>}
         <div>
           <label htmlFor="country" className="block text-sm font-medium text-text mb-1">
             Country / Region <span className="text-red-500">*</span>
@@ -144,6 +135,11 @@ export default function ContactForm() {
         </div>
       </div>
 
+      {formConfig.fields?.budget === true && <div>
+        <label htmlFor="budget" className="block text-sm font-medium text-text mb-1">Estimated Budget</label>
+        <input id="budget" type="text" name="budget" placeholder="Estimated project budget" className={inputClass} />
+      </div>}
+
       {/* Row 4: Service of Interest */}
       <div>
         <label htmlFor="service" className="block text-sm font-medium text-text mb-1">
@@ -153,11 +149,18 @@ export default function ContactForm() {
           <option value="" disabled>
             Select a service
           </option>
-          {serviceOptions.map((option) => (
+          {availableServices.map((option) => (
             <option key={option}>{option}</option>
           ))}
         </select>
       </div>
+
+      {Array.isArray(formConfig.customQuestions) && formConfig.customQuestions.filter((question: any) => question && typeof question.label === 'string' && question.label.trim()).map((question: any, index: number) => (
+        <div key={question.id || `${question.label}-${index}`}>
+          <label htmlFor={`custom-${index}`} className="block text-sm font-medium text-text mb-1">{question.label}{question.required ? <span className="text-red-500"> *</span> : null}</label>
+          {question.type === 'textarea' ? <textarea id={`custom-${index}`} name={`custom_${index + 1}`} required={Boolean(question.required)} rows={3} className={`${inputClass} resize-none`} /> : question.type === 'select' ? <select id={`custom-${index}`} name={`custom_${index + 1}`} required={Boolean(question.required)} defaultValue="" className={inputClass}><option value="" disabled>Select an option</option>{(Array.isArray(question.options) ? question.options : []).filter((option: unknown) => typeof option === 'string').map((option: string) => <option key={option}>{option}</option>)}</select> : <input id={`custom-${index}`} name={`custom_${index + 1}`} type="text" required={Boolean(question.required)} className={inputClass} />}
+        </div>
+      ))}
 
       {/* Row 5: Project Description */}
       <div>

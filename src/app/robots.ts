@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: [],
     },
-    sitemap: 'https://aldott.in/sitemap.xml',
-    host: 'https://aldott.in',
+    sitemap: 'https://aldott.de/sitemap.xml',
+    host: 'https://aldott.de',
   };
 }

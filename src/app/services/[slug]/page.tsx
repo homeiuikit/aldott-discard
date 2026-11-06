@@ -6,7 +6,11 @@ import CTABand from '@/components/ui/CTABand';
 import Icon from '@/components/ui/Icon';
 import PageHero from '@/components/ui/PageHero';
 import StandardsTag from '@/components/ui/StandardsTag';
-import { getService, services } from '@/data/services';
+import { getService, services, type Service } from '@/data/services';
+import { cmsMetadata } from '@/lib/metadata';
+import { getPublicPostContent } from '@/lib/api';
+
+export const dynamic = 'force-dynamic';
 
 // Per-page meta descriptions (spec §25).
 const metaDescriptions: Record<string, string> = {
@@ -26,21 +30,23 @@ const metaDescriptions: Record<string, string> = {
     'Fully outsourced or co-located wind R&D capacity — a dedicated senior engineering team working against your product roadmap.',
 };
 
-export function generateStaticParams() {
-  return services.map((service) => ({ slug: service.slug }));
-}
-
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const service = getService(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const service = await getPublicPostContent<Service>(params.slug, 'service') || getService(params.slug);
   if (!service) return {};
-  return {
+  const fallback: Metadata = {
     title: service.title,
     description: metaDescriptions[service.slug] ?? service.shortDescription,
   };
+  const metadata = await cmsMetadata(`services--${params.slug}`, fallback);
+  const seo = (service as Service & { seoMeta?: { title?: string; description?: string } }).seoMeta;
+  if (!seo?.title && !seo?.description) return metadata;
+  const title = seo.title || service.title;
+  const description = seo.description || metaDescriptions[service.slug] || service.shortDescription;
+  return { ...metadata, title: { absolute: title }, description, openGraph: { ...metadata.openGraph, title, description } };
 }
 
-export default function ServiceDetailPage({ params }: { params: { slug: string } }) {
-  const service = getService(params.slug);
+export default async function ServiceDetailPage({ params }: { params: { slug: string } }) {
+  const service = await getPublicPostContent<Service>(params.slug, 'service') || getService(params.slug);
   if (!service) notFound();
 
   const others = services.filter((s) => s.slug !== service.slug);
