@@ -5,7 +5,7 @@ import { PrismaNeon } from '@prisma/adapter-neon';
 // The Neon driver adapter uses WebSockets for pooled PostgreSQL connections.
 if (typeof globalThis.WebSocket === 'undefined') {
   const { neonConfig } = require('@neondatabase/serverless') as typeof import('@neondatabase/serverless');
-  neonConfig.webSocketConstructor = require('ws') as typeof import('ws');
+  neonConfig.webSocketConstructor = require('ws') as unknown as import('@neondatabase/serverless').WebSocketConstructor;
 }
 
 const connectionString = process.env.DATABASE_URL;
