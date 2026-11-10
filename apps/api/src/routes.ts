@@ -12,10 +12,12 @@ import { prisma } from './db';
 import { clearRefreshCookie, issueAccess, requireAdmin, requireAuth, setRefreshCookie, type SessionRequest } from './auth';
 import { deleteStoredMedia, storeMedia } from './storage';
 import { clientRateLimitKey } from './rate-limit';
+import { csvFields, csvCell, submissionCsvRow, submissionWhere, pageNumber, publicSubmission } from './submissions';
 
 const router = Router();
 const loginLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: clientRateLimitKey });
 const resetLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: clientRateLimitKey });
+const formLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 15, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: clientRateLimitKey });
 const aiDraftLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: clientRateLimitKey });
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const slugify = (value: string) => value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -111,13 +113,13 @@ router.get('/settings', async (_req, res) => {
   const publicKeys = new Set(['siteName', 'logo', 'phone', 'email', 'address', 'socialLinks', 'defaultSeo', 'contactFormConfig']);
   return res.json(Object.fromEntries(rows.filter((r) => publicKeys.has(r.key)).map((r) => [r.key, r.value])));
 });
-router.post('/forms/:formType', async (req, res) => {
-  const formType = slugify(param(req, 'formType'));
-  if (!formType || !req.body || typeof req.body !== 'object' || Array.isArray(req.body)) return res.status(400).json({ error: 'Invalid form submission' });
-  if (JSON.stringify(req.body).length > 30000) return res.status(413).json({ error: 'Submission is too large' });
-  const data = Object.fromEntries(Object.entries(req.body).map(([k, v]) => [k.slice(0, 80), typeof v === 'string' ? v.trim().slice(0, 5000) : v]));
-  if (typeof data.email !== 'string' || !z.string().email().safeParse(data.email).success) return res.status(422).json({ error: 'A valid email is required' });
-  const saved = await prisma.formSubmission.create({ data: { formType, data: data as any } });
+router.post('/forms/:formType', formLimit, async (req, res) => {
+  if (JSON.stringify(req.body || {}).length > 30000) return res.status(413).json({ error: 'Submission is too large' });
+  let data;
+  const formType = param(req, 'formType');
+  try { data = publicSubmission(formType, req.body); }
+  catch (error) { return res.status(422).json({ error: error instanceof Error ? error.message : 'Invalid submission' }); }
+  const saved = await prisma.formSubmission.create({ data: { formType, data } });
   return res.status(201).json({ ok: true, id: saved.id });
 });
 
@@ -180,9 +182,52 @@ router.post('/admin/ai/draft', aiDraftLimit, async (req, res) => {
     return res.json({ title: String(draft.title).slice(0, 250), seoTitle: String(draft.seoTitle || draft.title).slice(0, 250), seoDescription: String(draft.seoDescription || '').slice(0, 500), excerpt: String(draft.excerpt || draft.seoDescription || '').slice(0, 700), html: clean(String(draft.html)) });
   } catch (error) { console.error('AI draft failed', error); return res.status(502).json({ error: 'Could not generate the article draft. Please try again.' }); }
 });
+router.get('/admin/submissions/export', async (req: SessionRequest, res) => {
+  let where;
+  try { where = submissionWhere(req.query); }
+  catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid filters' }); }
+  // Fetch the first batch before sending headers so database failures return JSON.
+  const batchSize = 500;
+  const query = { where, orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }], take: batchSize };
+  let batch = await prisma.formSubmission.findMany(query);
+  await prisma.auditLog.create({ data: { userId: req.user!.id, action: 'export', entity: 'submissions', details: { formType: String(req.query.formType || 'all'), status: String(req.query.status || 'all') } } });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="aldott-submissions-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.write('\uFEFF' + csvFields.map(csvCell).join(',') + '\r\n');
+  try {
+    while (batch.length && !res.destroyed) {
+      for (const row of batch) {
+        if (!res.write(submissionCsvRow(row))) {
+          const writable = await new Promise<boolean>(resolve => {
+            const drain = () => { cleanup(); resolve(true); };
+            const close = () => { cleanup(); resolve(false); };
+            const cleanup = () => { res.off('drain', drain); res.off('close', close); };
+            res.once('drain', drain); res.once('close', close);
+          });
+          if (!writable) return;
+        }
+      }
+      if (batch.length < batchSize) break;
+      batch = await prisma.formSubmission.findMany({ ...query, cursor: { id: batch[batch.length - 1].id }, skip: 1 });
+    }
+    res.end();
+  } catch (error) { console.error('CSV export failed', error); res.destroy(); }
+});
+
 router.get('/admin/:resource', async (req, res) => {
   const resource = resources[param(req, 'resource')];
   if (!resource) return res.status(404).json({ error: 'Unknown resource' });
+  if (['forms', 'submissions'].includes(param(req, 'resource'))) {
+    try {
+      const where = submissionWhere(req.query);
+      const take = pageNumber(req.query.limit, 100, 200);
+      const page = pageNumber(req.query.page, 1, 1000000);
+      const rows = await prisma.formSubmission.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take, skip: (page - 1) * take });
+      if (req.query.paginate === '1') return res.json({ rows, total: await prisma.formSubmission.count({ where }), page, pageSize: take });
+      return res.json(rows);
+    } catch (error) { console.error(error); return res.status(400).json({ error: 'Could not list submissions' }); }
+  }
   const search = String(req.query.search || '').trim();
   const status = String(req.query.status || '').trim();
   const where: any = {};
@@ -217,7 +262,7 @@ router.post('/admin/:resource', async (req: SessionRequest, res) => {
       data.roleId = role.id; delete data.role; data.passwordHash = await bcrypt.hash(req.body.password, 12); delete data.password;
     }
     if (param(req, 'resource') === 'apiKeys') data.keyHash = hash(generatedApiKey);
-    if (param(req, 'resource') === 'roles' && Array.isArray(data.permissions)) { const keys = data.permissions; delete data.permissions; data.permissions = { connect: await prisma.permission.findMany({ where: { key: { in: keys } }, select: { id: true } }) }; }
+    if (param(req, 'resource') === 'roles' && Array.isArray(data.permissions)) { const keys = data.permissions; delete data.permissions; data.permissions = { create: (await prisma.permission.findMany({ where: { key: { in: keys } }, select: { id: true } })).map(p => ({ permissionId: p.id })) }; }
     if (param(req, 'resource') === 'posts') {
       for (const relation of ['categories', 'tags']) if (Array.isArray(data[relation])) { const names = data[relation]; delete data[relation]; const found: any[] = relation === 'categories' ? await prisma.category.findMany({ where: { slug: { in: names } }, select: { id: true } }) : await prisma.tag.findMany({ where: { slug: { in: names } }, select: { id: true } }); data[relation] = { connect: found }; }
     }
@@ -232,7 +277,7 @@ router.put('/admin/:resource/:id', async (req: SessionRequest, res) => {
   try {
     const data = mutable(req.body, param(req, 'resource'));
     if (param(req, 'resource') === 'users') { if (data.role) { const role = await prisma.role.findUnique({ where: { name: data.role } }); if (!role) throw new Error('Role not found'); data.roleId = role.id; delete data.role; } if (req.body.password) { if (req.body.password.length < 12) throw new Error('A password of at least 12 characters is required'); data.passwordHash = await bcrypt.hash(req.body.password, 12); data.tokenVersion = { increment: 1 }; } delete data.password; }
-    if (param(req, 'resource') === 'roles' && Array.isArray(data.permissions)) { const keys = data.permissions; delete data.permissions; data.permissions = { set: (await prisma.permission.findMany({ where: { key: { in: keys } }, select: { id: true } })).map(p => ({ id: p.id })) }; }
+    if (param(req, 'resource') === 'roles' && Array.isArray(data.permissions)) { const keys = data.permissions; delete data.permissions; data.permissions = { deleteMany: {}, create: (await prisma.permission.findMany({ where: { key: { in: keys } }, select: { id: true } })).map(p => ({ permissionId: p.id })) }; }
     if (param(req, 'resource') === 'posts') {
       for (const relation of ['categories', 'tags']) if (Array.isArray(data[relation])) { const names = data[relation]; delete data[relation]; const found: any[] = relation === 'categories' ? await prisma.category.findMany({ where: { slug: { in: names } }, select: { id: true } }) : await prisma.tag.findMany({ where: { slug: { in: names } }, select: { id: true } }); data[relation] = { set: found.map((item: any) => ({ id: item.id })) }; }
     }

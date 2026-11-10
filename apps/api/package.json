@@ -8,7 +8,8 @@
     "prisma:generate": "cd ../.. && ./apps/api/node_modules/.bin/prisma generate --schema apps/api/prisma/schema.prisma",
     "prisma:migrate": "cd ../.. && ./apps/api/node_modules/.bin/prisma migrate dev --name init --schema apps/api/prisma/schema.prisma",
     "prisma:deploy": "cd ../.. && ./apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",

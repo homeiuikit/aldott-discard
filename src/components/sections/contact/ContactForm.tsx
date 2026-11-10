@@ -1,5 +1,7 @@
 'use client';
 
+import { insights } from '@/data/insights';
+import { siteConfig } from '@/data/site';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { getPublicPosts, getPublicSettings, submitPublicForm } from '@/lib/api';
@@ -33,12 +35,14 @@ type Status = 'idle' | 'submitting' | 'success' | 'error';
 
 export default function ContactForm() {
   const searchParams = useSearchParams();
+  const topic = insights.find(item => item.slug === searchParams.get('topic'));
   const preselected = slugToLabel[searchParams.get('service') ?? ''] ?? '';
+  const [email, setEmail] = useState(siteConfig.email);
   const [status, setStatus] = useState<Status>('idle');
   const [formConfig, setFormConfig] = useState<any>({ fields: { company: true, phone: true, budget: false }, customQuestions: [] });
   const [availableServices, setAvailableServices] = useState(serviceOptions);
   useEffect(() => {
-    getPublicSettings().then((settings) => { if (settings.contactFormConfig && typeof settings.contactFormConfig === 'object') setFormConfig(settings.contactFormConfig); }).catch(() => undefined);
+    getPublicSettings().then((settings) => { if (typeof settings.email === 'string' && settings.email) setEmail(settings.email); if (settings.contactFormConfig && typeof settings.contactFormConfig === 'object') setFormConfig(settings.contactFormConfig); }).catch(() => undefined);
     getPublicPosts('service').then((posts) => { const ordered = posts.map((post) => post.contentBlocks?.find((block: any) => block?.type === 'service') || post.contentBlocks?.[0]).filter(Boolean).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)); const names = ordered.map((service: any) => service.title).filter((name): name is string => typeof name === 'string' && Boolean(name)); if (names.length) setAvailableServices([...names, 'Other / Not sure yet']); }).catch(() => undefined);
   }, []);
 
@@ -65,8 +69,8 @@ export default function ContactForm() {
         <p className="text-text-muted text-sm leading-relaxed">
           We&apos;ve received your details and aim to respond within 1 business day. If it&apos;s urgent,
           you can also reach us directly at{' '}
-          <a href="mailto:info@aldott.in" className="text-accent underline">
-            info@aldott.in
+          <a href={`mailto:${email}`} className="text-accent underline">
+            {email}
           </a>
           .
         </p>
@@ -172,6 +176,7 @@ export default function ContactForm() {
           name="message"
           required
           rows={4}
+          defaultValue={topic ? `I would like to request the briefing: ${topic.title}.` : ''}
           placeholder="Briefly describe your project or requirement"
           className={`${inputClass} resize-none`}
         />
@@ -206,8 +211,8 @@ export default function ContactForm() {
       {status === 'error' && (
         <p role="alert" className="text-red-500 text-sm text-center leading-relaxed">
           Something went wrong sending your enquiry. Please try again, or email us at{' '}
-          <a href="mailto:info@aldott.in" className="underline">
-            info@aldott.in
+          <a href={`mailto:${email}`} className="underline">
+            {email}
           </a>
           .
         </p>

@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { API_BASE } from '@/lib/api';
 import type { ReactNode, CSSProperties } from 'react';
 
 type SchematicPanelProps = {
@@ -65,7 +66,8 @@ export default function SchematicPanel({
     >
       {image && (
         <Image
-          src={image}
+          src={image.startsWith('/uploads/') ? `${API_BASE.replace(/\/api\/v1\/?$/, '')}${image}` : image}
+          unoptimized={image.startsWith('/uploads/') || /^https?:\/\//.test(image)}
           alt={alt}
           fill
           priority={priority}

@@ -101,3 +101,11 @@ The admin supports sign in, forgot/reset password, dashboard counts, page, Servi
 Open **Posts / Insights**, create or edit a post, enter a topic, and choose **Draft with AI**. The title, SEO title and description, summary, and article body are inserted for review. Upload the featured image in the same editor, save the post as a draft, then publish when ready. Published articles are available at `/insights/{slug}` with article metadata, structured data, and sitemap entries. AI is optional: add `GEMINI_API_KEY` to the root `.env` and restart the API. `GEMINI_MODEL` optionally selects a model supported by your Gemini API account. The key stays on the server. Manual editing and image uploads work without AI credentials.
 
 AI text is an editable first draft; review factual and technical claims before publishing. Draft generation uses Google's [Gemini API](https://ai.google.dev/gemini-api/docs/generate-content).
+
+## Inbox export and newsletter signup
+
+Contacts, Demo requests, Newsletter and Forms inbox now use structured columns with search, status filters, column selection, full details and pagination. **Export CSV** downloads every record matching the current filters, including custom answers, regardless of visible page or columns. The endpoint is `GET /api/v1/admin/submissions/export` and requires the normal admin bearer token. A paginated list is available at `/api/v1/admin/submissions?paginate=1&page=1&limit=25`; clients omitting `paginate=1` retain the existing array response.
+
+The public footer submits newsletter signup requests to `/api/v1/forms/newsletter` with `email` and `consent: "true"`. These are stored with the server timestamp and consent wording version; email sending, confirmation and unsubscribe automation still require a mailing service integration. No database migration is required. Deploy the API before the public and admin apps.
+
+Run the isolated backend regression suite with `npm --prefix apps/api test`. See [WEBSITE_AUDIT.md](WEBSITE_AUDIT.md) for the source comparison, changes, checks and remaining integration gaps.

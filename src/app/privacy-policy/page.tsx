@@ -1,11 +1,21 @@
 import type { Metadata } from 'next';
 import PageHero from '@/components/ui/PageHero';
 import { cmsMetadata } from '@/lib/metadata';
+import { privacyPolicySections, privacyPolicyUpdated } from '@/data/privacy-policy';
 
 export async function generateMetadata(): Promise<Metadata> { return cmsMetadata('privacy-policy', {
   title: 'Privacy Policy',
-  description: 'How Aldott handles personal data submitted through this website.',
+  description: 'How Aldott handles personal data, contact enquiries, cookies and embedded services on this website.',
 }); }
+
+function PolicyText({ text }: { text: string }) {
+  const links = /(https:\/\/knowledge\.hubspot\.com\/privacy-and-consent\/what-cookies-does-hubspot-set-in-a-visitor-s-browser|https:\/\/aldott\.de|info@aldott\.in)/g;
+  return <>{text.split(links).map((part, index) => part === 'info@aldott.in'
+    ? <a key={index} href={`mailto:${part}`} className="text-accent underline break-words">{part}</a>
+    : part.startsWith('https://')
+      ? <a key={index} href={part} className="text-accent underline break-words">{part}</a>
+      : part)}</>;
+}
 
 export default function PrivacyPolicyPage() {
   return (
@@ -15,38 +25,23 @@ export default function PrivacyPolicyPage() {
         title="Privacy Policy"
         subtitle="How we handle the information you share with us."
       />
-      <section className="bg-page py-16 md:py-20">
-        <div className="max-w-content mx-auto px-6 md:px-8 max-w-3xl space-y-6 text-text-muted text-base leading-relaxed">
-          <p className="text-sm italic">
-            Placeholder content, final privacy policy pending legal review (spec §24).
-          </p>
-          <div>
-            <h2 className="text-text font-semibold text-xl mb-2">Data we collect</h2>
-            <p>
-              When you submit an enquiry through our contact form, we collect the details
-              you provide, such as your name, company, email address, and the description
-              of your project, so that we can respond to your request.
-            </p>
-          </div>
-          <div>
-            <h2 className="text-text font-semibold text-xl mb-2">How we use it</h2>
-            <p>
-              We use your information solely to respond to your enquiry and to communicate
-              with you about your wind energy project. We do not sell your data.
-            </p>
-          </div>
-          <div>
-            <h2 className="text-text font-semibold text-xl mb-2">Contact</h2>
-            <p>
-              For any questions about how your data is handled, contact us at{' '}
-              <a href="mailto:info@aldott.in" className="text-accent underline">
-                info@aldott.in
-              </a>
-              .
-            </p>
+      <article className="bg-page py-16 md:py-20" aria-label="Privacy Policy">
+        <div className="mx-auto w-full max-w-3xl px-6 md:px-8 text-text-muted text-base leading-relaxed">
+          <p className="text-sm mb-10">Last updated: <time dateTime="2026-11-06">{privacyPolicyUpdated}</time></p>
+          <div className="space-y-10">
+            {privacyPolicySections.map((section, sectionIndex) => (
+              <section key={section.title} aria-labelledby={`privacy-section-${sectionIndex + 1}`}>
+                <h2 id={`privacy-section-${sectionIndex + 1}`} className="text-text font-semibold text-xl mb-4">{section.title}</h2>
+                <div className="space-y-4">
+                  {section.paragraphs.map((paragraph, index) => sectionIndex === 0 && index === 1
+                    ? <address key={index} className="not-italic whitespace-pre-line"><PolicyText text={paragraph} /></address>
+                    : <p key={index} className="whitespace-pre-line"><PolicyText text={paragraph} /></p>)}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
-      </section>
+      </article>
     </>
   );
 }

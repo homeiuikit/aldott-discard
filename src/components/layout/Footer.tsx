@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import NewsletterForm from '@/components/sections/contact/NewsletterForm';
 import { services } from '@/data/services';
 import { offices, siteConfig } from '@/data/site';
 import Icon from '@/components/ui/Icon';
@@ -120,6 +121,7 @@ export default async function Footer() {
             </ul>
           </div>
         </div>
+        <NewsletterForm />
       </div>
 
       <div className="border-t border-white/10">
