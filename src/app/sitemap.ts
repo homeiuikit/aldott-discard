@@ -8,17 +8,6 @@ export const dynamic = 'force-dynamic';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = 'https://aldott.de';
   const now = new Date();
-  try {
-    const [pageResponse, postResponse] = await Promise.all([fetch(`${API_BASE}/pages`, { cache: 'no-store' }), fetch(`${API_BASE}/posts`, { cache: 'no-store' })]);
-    if (pageResponse.ok && postResponse.ok) {
-      const [cmsPages, cmsPosts] = await Promise.all([pageResponse.json(), postResponse.json()]);
-      return [
-        ...cmsPages.map((page: { slug: string; updatedAt: string }) => ({ url: page.slug === 'home' ? base : `${base}/${page.slug.replace(/--/g, '/')}`, lastModified: new Date(page.updatedAt), changeFrequency: 'monthly' as const, priority: page.slug === 'home' ? 1 : 0.7 })),
-        ...cmsPosts.map((post: { slug: string; type: string; updatedAt: string }) => ({ url: `${base}/${post.type === 'service' ? 'services' : post.type === 'project' ? 'projects' : 'insights'}/${post.slug}`, lastModified: new Date(post.updatedAt), changeFrequency: 'monthly' as const, priority: 0.6 })),
-      ];
-    }
-  } catch { /* The existing site route list below is the local fallback. */ }
-
   const staticRoutes: MetadataRoute.Sitemap = [
     '',
     '/services',
@@ -55,5 +44,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.75,
   }));
 
-  return [...staticRoutes, ...serviceRoutes, ...projectRoutes];
+  const entries = new Map([...staticRoutes, ...serviceRoutes, ...projectRoutes].map(entry => [entry.url, entry]));
+  // Static routes remain available even when CMS collections are empty or partial.
+  try {
+    const [pageResponse, postResponse] = await Promise.all([fetch(`${API_BASE}/pages`, { cache: 'no-store' }), fetch(`${API_BASE}/posts`, { cache: 'no-store' })]);
+    if (pageResponse.ok) {
+      const pages: Array<{ slug: string; updatedAt: string }> = await pageResponse.json();
+      for (const page of pages) {
+        const url = page.slug === 'home' ? base : `${base}/${page.slug.replace(/--/g, '/')}`;
+        entries.set(url, { url, lastModified: new Date(page.updatedAt), changeFrequency: 'monthly', priority: page.slug === 'home' ? 1 : 0.7 });
+      }
+    }
+    if (postResponse.ok) {
+      const posts: Array<{ slug: string; type: string; updatedAt: string }> = await postResponse.json();
+      for (const post of posts) {
+        const url = `${base}/${post.type === 'service' ? 'services' : post.type === 'project' ? 'projects' : 'insights'}/${post.slug}`;
+        entries.set(url, { url, lastModified: new Date(post.updatedAt), changeFrequency: 'monthly', priority: 0.6 });
+      }
+    }
+  } catch { /* Keep known public routes when the API is unavailable. */ }
+  return [...entries.values()];
 }
